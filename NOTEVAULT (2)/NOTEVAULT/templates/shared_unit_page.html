@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ unit_name }} | Shared Notes | NoteVault</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: #0b0b1e; color: #fff; display: flex; flex-direction: column; min-height: 100vh; }
+        .breadcrumb { background: #12121f; padding: 1rem 2rem; font-size: 0.9em; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; }
+        .breadcrumb-nav a { color: #6e7cff; text-decoration: none; cursor: pointer; margin-right: 1rem; }
+        .breadcrumb-nav a:hover { text-decoration: underline; }
+        .shared-badge { background: #00aa66; color: #fff; padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.85em; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .header { margin-bottom: 2rem; }
+        .header h1 { color: #6e7cff; margin-bottom: 0.5rem; font-size: 2em; }
+        .header-info { color: #aaa; font-size: 0.95em; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; }
+        .read-only-notice { background: #1b1b33; border-left: 4px solid #00aa66; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; }
+        .read-only-notice p { color: #aaa; margin: 0; font-size: 0.95em; }
+        .notes-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+        .note-card { background: #1b1b33; padding: 1.3rem; border-radius: 8px; word-wrap: break-word; border-left: 4px solid #6e7cff; transition: 0.3s; }
+        .note-card.file { border-left-color: #ffa500; }
+        .note-card.link { border-left-color: #00ff88; }
+        .note-card.image { border-left-color: #00ddff; }
+        .note-card.pdf { border-left-color: #ff4444; }
+        .note-card:hover { box-shadow: 0 8px 20px rgba(110, 124, 255, 0.3); transform: translateY(-3px); }
+        .note-title { font-weight: 600; font-size: 1.1em; margin-bottom: 0.7rem; color: #fff; }
+        .note-content { font-size: 0.9em; opacity: 0.8; line-height: 1.4; }
+        .note-content a { color: #6e7cff; text-decoration: none; }
+        .note-content a:hover { text-decoration: underline; }
+        .empty-state { text-align: center; padding: 3rem; color: #888; }
+        .empty-state h3 { margin-bottom: 1rem; }
+        .go-home { color: #6e7cff; text-decoration: none; margin-top: 1rem; display: inline-block; }
+        .go-home:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <div class="breadcrumb-nav">
+            <a href="{{ url_for('home') }}">📚 NoteVault Home</a>
+        </div>
+        <div class="shared-badge">✓ Shared Link - Read Only</div>
+    </div>
+
+    <div class="content">
+        <div class="header">
+            <h1>📖 {{ unit_name }}</h1>
+            <div class="header-info">
+                <span>This is a shared notes page with read-only access</span>
+            </div>
+            <div class="read-only-notice">
+                <p><strong>✓ Read-Only Access:</strong> You can view all notes on this page but cannot edit, delete, or modify them. This share link can be revoked by the owner at any time.</p>
+            </div>
+        </div>
+
+        {% if notes %}
+            <div class="notes-container">
+                {% for note in notes %}
+                    <div class="note-card {% if note.note_type %}{{ note.note_type }}{% endif %}">
+                        <div class="note-title">{{ note.title or 'Untitled' }}</div>
+                        <div class="note-content">
+                            {% if note.note_type == 'text' %}
+                                {{ note.content }}
+                            {% elif note.note_type == 'pdf' %}
+                                <a href="{{ url_for('uploaded_file', filename=note.file_path) }}" target="_blank" style="color:#ff4444;">📄 View PDF</a>
+                            {% elif note.note_type == 'image' %}
+                                <a href="{{ url_for('uploaded_file', filename=note.file_path) }}" target="_blank" style="color:#00ddff;">🖼️ View Image</a>
+                            {% elif note.note_type == 'file' %}
+                                <a href="{{ url_for('uploaded_file', filename=note.file_path) }}" target="_blank" style="color:#ffa500;">📎 Download File</a>
+                            {% elif note.note_type == 'link' %}
+                                <a href="{{ note.link_url }}" target="_blank" rel="noopener noreferrer" style="color:#00ff88;">🔗 {{ note.link_url }}</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No notes yet</h3>
+                <p>This shared page doesn't contain any notes.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

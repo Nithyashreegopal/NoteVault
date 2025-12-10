@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Shared Note | NoteVault</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: #0b0b1e; color: #fff; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #12121f; padding: 1.5rem 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 1.8em; color: #6e7cff; }
+        header .info { font-size: 0.9em; color: #aaa; }
+        .container { flex: 1; max-width: 900px; margin: 2rem auto; padding: 0 1rem; width: 100%; }
+        .note-card { background: #1b1b33; padding: 2rem; border-radius: 10px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+        .note-title { font-size: 2em; font-weight: 600; margin-bottom: 1rem; color: #6e7cff; }
+        .note-meta { display: flex; gap: 1rem; margin-bottom: 1.5rem; font-size: 0.9em; }
+        .meta-item { padding: 0.5rem 1rem; background: #2b2b44; border-radius: 6px; }
+        .note-type { color: #ffa500; }
+        .note-content { font-size: 1.1em; line-height: 1.8; margin-bottom: 1.5rem; color: #e0e0e0; }
+        .note-link { display: inline-block; padding: 0.8rem 1.2rem; background: #6e7cff; color: #fff; text-decoration: none; border-radius: 6px; margin-top: 1rem; }
+        .note-link:hover { background: #5568dd; }
+        .note-file { display: inline-block; padding: 0.8rem 1.2rem; background: #00ff88; color: #000; text-decoration: none; border-radius: 6px; margin-top: 1rem; font-weight: 600; }
+        .note-file:hover { background: #00dd77; }
+        .footer { text-align: center; padding: 1.5rem; color: #888; font-size: 0.9em; margin-top: 2rem; }
+        .shared-badge { display: inline-block; padding: 0.5rem 1rem; background: rgba(0, 255, 136, 0.2); color: #00ff88; border-radius: 6px; font-size: 0.85em; margin-bottom: 1rem; border: 1px solid #00ff88; }
+        .back-link { display: inline-block; margin-bottom: 1.5rem; padding: 0.7rem 1rem; background: #2b2b44; color: #6e7cff; text-decoration: none; border-radius: 6px; transition: 0.3s; }
+        .back-link:hover { background: #3a3a54; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📖 Shared Note</h1>
+    <div class="info">This is a read-only shared note</div>
+</header>
+
+<div class="container">
+    <a href="{{ url_for('home') }}" class="back-link">← Back to Home</a>
+    
+    <div class="note-card">
+        <div class="shared-badge">✓ Shared Link - Read Only</div>
+        
+        <div class="note-title">{{ title }}</div>
+        
+        <div class="note-meta">
+            <div class="meta-item"><strong>Type:</strong> <span class="note-type">{{ note_type.upper() }}</span></div>
+        </div>
+        
+        {% if note_type == 'text' %}
+            <div class="note-content">{{ content }}</div>
+        {% elif note_type == 'pdf' %}
+            <p style="margin-bottom: 1rem; color: #aaa;">📄 PDF Document</p>
+            <a href="{{ url_for('uploaded_file', filename=file_path) }}" class="note-file" target="_blank">📥 View PDF</a>
+        {% elif note_type == 'image' %}
+            <p style="margin-bottom: 1rem; color: #aaa;">🖼️ Image File</p>
+            <a href="{{ url_for('uploaded_file', filename=file_path) }}" class="note-file" target="_blank">🖼️ View Image</a>
+        {% elif note_type == 'file' %}
+            <p style="margin-bottom: 1rem; color: #aaa;">📎 File Attachment</p>
+            <a href="{{ url_for('uploaded_file', filename=file_path) }}" class="note-file" target="_blank">📥 Download File</a>
+        {% elif note_type == 'link' %}
+            <p style="margin-bottom: 1rem; color: #aaa;">🔗 External Link</p>
+            <a href="{{ link_url }}" class="note-link" target="_blank" rel="noopener noreferrer">🔗 Open Link</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="footer">
+    <p>This note has been shared with you via NoteVault. You have read-only access.</p>
+    <p style="margin-top: 0.5rem; font-size: 0.85em;">Share links are managed by the note owner and can be revoked at any time.</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject_name }} | NoteVault</title>
+    <style>
+        body { font-family: 'Poppins', sans-serif; margin: 0; background: #0b0b1e; color: #fff; display: flex; min-height: 100vh; }
+        .breadcrumb { background: #12121f; padding: 1rem 2rem; font-size: 0.9em; }
+        .breadcrumb a { color: #6e7cff; text-decoration: none; cursor: pointer; }
+        .sidebar { width: 220px; background: #12121f; padding: 1rem; height: calc(100vh - 50px); overflow-y: auto; box-shadow: 2px 0 10px #000; }
+        .sidebar h3 { margin-top: 0; color: #6e7cff; }
+        .sidebar form { display: flex; flex-direction: column; margin-bottom: 1rem; }
+        .sidebar input { padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 5px; border: none; background: #1b1b33; color: #fff; }
+        .sidebar button { background: #6e7cff; border: none; color: #fff; border-radius: 6px; cursor: pointer; padding: 0.5rem; font-weight: 600; }
+        .sidebar button:hover { background: #5568dd; }
+        .sidebar ul { list-style: none; padding: 0; }
+        .sidebar li { padding: 0.7rem; cursor: pointer; border-radius: 5px; background: #1b1b33; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
+        .sidebar li:hover, .sidebar li.selected { background: #6e7cff; }
+        .main { flex: 1; padding: 1rem; overflow-y: auto; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .btn { background: #6e7cff; border: none; color: #fff; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .btn:hover { background: #5568dd; }
+        .notes-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+        .note-card { background: #1b1b33; padding: 1.2rem; border-radius: 8px; word-wrap: break-word; position: relative; transition: 0.3s; }
+        .note-card:hover { box-shadow: 0 5px 15px rgba(110, 124, 255, 0.2); }
+        .note-card.text { border-left: 4px solid #6e7cff; }
+        .note-card.file { border-left: 4px solid #ffa500; }
+        .note-card.link { border-left: 4px solid #00ff88; }
+        .note-title { font-weight: 600; margin-bottom: 0.5rem; }
+        .note-content { font-size: 0.9em; opacity: 0.8; }
+        .note-actions { position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 0.3rem; }
+        .note-actions button { background: #2b2b44; border: none; color: #fff; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        .note-actions button:hover { background: #6e7cff; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #12121f; padding: 2rem; border-radius: 10px; max-width: 500px; width: 90%; }
+        .modal-content h2 { margin-top: 0; color: #6e7cff; }
+        .modal-content label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        .modal-content input, .modal-content textarea { width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: none; border-radius: 6px; background: #1b1b33; color: #fff; box-sizing: border-box; }
+        .modal-content textarea { resize: vertical; min-height: 100px; }
+        .modal-actions { display: flex; gap: 1rem; }
+        .modal-actions button { flex: 1; padding: 0.8rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .modal-actions .save { background: #6e7cff; color: #fff; }
+        .modal-actions .cancel { background: #2b2b44; color: #fff; }
+
+        /* ----------------- Responsive / Mobile friendly tweaks ----------------- */
+
+        /* Make controls wrap and enlarge tappable areas */
+        .controls .btn {
+            min-height: 44px;               /* accessible touch target */
+            padding: 0.8rem 1rem;
+            font-size: 0.95rem;
+        }
+
+        /* Note cards: make spacing comfortable on mobile */
+        .note-card { padding: 1rem; }
+
+        /* Note actions buttons bigger for touch */
+        .note-actions button {
+            padding: 0.5rem 0.65rem;
+            min-width: 40px;
+        }
+
+        /* Sidebar overflow and smooth off-canvas behavior */
+        .sidebar {
+            transition: transform 0.28s ease, opacity 0.28s ease;
+        }
+
+        /* Modal: adapt to small screens */
+        .modal-content {
+            max-width: 600px;
+            width: 90%;
+            margin: 0 1rem;
+        }
+        .modal.active { align-items: flex-start; padding-top: 4rem; }
+
+        /* Ensure anchor text breaks well on small screens */
+        .note-content a { word-break: break-word; display: inline-block; max-width: 100%; }
+
+        /* Small screens behavior */
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .breadcrumb { position: relative; padding-left: 4.2rem; } /* leave space for hamburger */
+            #mobile-toggle { display: block; } /* show the hamburger */
+
+            /* Sidebar becomes off-canvas */
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 260px; /* slightly wider on mobile */
+                transform: translateX(-110%); /* hidden by default */
+                z-index: 1050;
+                box-shadow: 6px 0 30px rgba(0,0,0,0.6);
+                background: #12121f;
+                opacity: 0.98;
+            }
+            .sidebar.open { transform: translateX(0); }
+
+            /* Dim background when sidebar open */
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.45);
+                z-index: 1040;
+                transition: opacity 0.28s ease;
+            }
+            .sidebar-backdrop.show { display: block; }
+
+            /* Make main area full width under header */
+            .main {
+                padding: 1rem;
+                margin-left: 0;
+                min-height: calc(100vh - 60px);
+            }
+
+            /* Notes grid 1 column on small screens */
+            .notes-container { grid-template-columns: 1fr; gap: 0.85rem; }
+
+            /* Make buttons fill width in controls for small screens */
+            .controls { flex-direction: column; gap: .6rem; }
+            .controls .btn { width: 100%; text-align: left; padding-left: 1rem; }
+
+            /* Make modals take most of the screen vertically & scrolling */
+            .modal-content { max-height: calc(100vh - 8rem); overflow-y: auto; }
+
+            /* Units list adjustments */
+            .sidebar h3 { font-size: 1.05rem; margin-bottom: .5rem; }
+            .sidebar input { font-size: 0.95rem; }
+            .sidebar li { padding: 0.9rem; font-size: 0.95rem; }
+        }
+
+        /* Medium screens: 900-1200: reduce columns gradually */
+        @media (min-width: 901px) and (max-width: 1199px) {
+            .notes-container { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+        }
+
+        /* Improve keyboard focus state for accessibility */
+        .note-actions button:focus, .controls .btn:focus, .sidebar button:focus {
+            outline: 3px solid rgba(110,124,255,0.25);
+            outline-offset: 3px;
+        }
+
+        /* Increase link tap area */
+        .note-content a { padding: 2px 4px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="{{ url_for('dashboard') }}">📚 Dashboard</a> / {{ subject_name }}
+    </div>
+
+    <!-- Mobile hamburger (paste just after breadcrumb) -->
+    <button id="mobile-toggle" aria-label="Toggle menu" style="display:none; position:fixed; left:1rem; top:1rem; z-index:1100; border:none; background:#6e7cff; color:#fff; padding:0.5rem 0.6rem; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.4); cursor:pointer;">
+        ☰
+    </button>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h3>Units</h3>
+        <form id="add-unit-form">
+            <input type="text" id="new-unit-name" placeholder="Add new unit" required>
+            <button type="submit">+ Add Unit</button>
+        </form>
+        <div id="unit-list">
+            {% for unit in units %}
+                <div class="unit-row" style="display:flex;align-items:center;gap:4px;margin-bottom:10px;">
+                    <button onclick="window.location.href='/view_unit/{{ unit[0] }}'" class="unit-btn" style="flex:unset;text-align:left;padding:10px 14px 10px 16px;border-radius:8px;background:#232345;color:#fff;font-weight:600;border:none;cursor:pointer;">{{ unit[1] }}</button>
+                </div>
+            {% else %}
+                <li style="opacity: 0.6; font-style: italic;">No units yet</li>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Backdrop shown when sidebar is open on mobile -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="controls">
+            <button class="btn" id="add-text-btn">📝 Add Text Note</button>
+            <button class="btn" id="add-file-btn">📤 Upload File</button>
+            <button class="btn" id="add-link-btn">🔗 Add Link</button>
+        </div>
+
+        <h2 id="selected-unit-name">Select a unit to view notes</h2>
+        <div class="notes-container" id="notes-container"></div>
+    </div>
+
+    <!-- Modal for text note -->
+    <div id="text-modal" class="modal">
+        <div class="modal-content">
+            <h2>Add Text Note</h2>
+            <label>Title</label>
+            <input type="text" id="text-title" placeholder="Note title" value="Untitled">
+            <label>Content</label>
+            <textarea id="text-content" placeholder="Enter your note..."></textarea>
+            <div class="modal-actions">
+                <button class="save" id="save-text-btn">Save</button>
+                <button class="cancel" onclick="closeModal('text-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="file-input" style="display: none;">
+
+    <!-- Modal for link -->
+    <div id="link-modal" class="modal">
+        <div class="modal-content">
+            <h2>Add Link</h2>
+            <label>Title</label>
+            <input type="text" id="link-title" placeholder="Link title" value="Untitled">
+            <label>URL</label>
+            <input type="url" id="link-url" placeholder="https://example.com">
+            <div class="modal-actions">
+                <button class="save" id="save-link-btn">Save</button>
+                <button class="cancel" onclick="closeModal('link-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const subjectId = "{{ subject_id }}";
+        const uploadBase = "{{ url_for('uploaded_file', filename='__FNAME__') }}"; // replace __FNAME__ with encoded filename
+        let selectedUnitId = null;
+
+        // Modal helpers
+        function showModal(id){ document.getElementById(id).classList.add('active'); }
+        function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+        // Unit selection
+        function setupUnitListeners(){
+            document.querySelectorAll('#unit-list li').forEach(li=>{
+                if(!li.dataset.id) return;
+                li.addEventListener('click', ()=>{
+                    document.querySelectorAll('#unit-list li').forEach(l=>l.classList.remove('selected'));
+                    li.classList.add('selected');
+                    selectedUnitId = li.dataset.id;
+                    document.getElementById('selected-unit-name').innerText = li.innerText;
+                    loadNotes(selectedUnitId);
+                });
+            });
+        }
+        setupUnitListeners();
+
+        // Add unit
+        document.getElementById('add-unit-form').addEventListener('submit', (e)=>{
+            e.preventDefault();
+            const name = document.getElementById('new-unit-name').value.trim();
+            if(!name) return;
+            fetch(`/add_unit/${subjectId}`, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:`unit_name=${encodeURIComponent(name)}`
+            }).then(r=>r.json()).then(res=>{
+                if(res.status==='success'){
+                    const li = document.createElement('li');
+                    li.dataset.id = res.unit_id;
+                    li.innerText = res.unit_name;
+                    document.getElementById('unit-list').appendChild(li);
+                    setupUnitListeners();
+                    li.click();
+                    document.getElementById('new-unit-name').value = '';
+                }
+            });
+        });
+
+        // Load notes for unit
+        function loadNotes(unitId){
+            document.getElementById('notes-container').innerHTML = '<p>Loading...</p>';
+            fetch(`/get_notes/${unitId}`).then(r=>r.json()).then(data=>{
+                if(data.status==='success') renderNotes(data.notes);
+                else document.getElementById('notes-container').innerHTML = '<p>Error loading notes</p>';
+            });
+        }
+
+        function renderNotes(notes){
+            const container = document.getElementById('notes-container');
+            container.innerHTML = '';
+            if(!notes || notes.length===0){
+                container.innerHTML = '<p>No notes yet. Add one to get started!</p>';
+                return;
+            }
+            notes.forEach(n=>{
+                const div = document.createElement('div');
+                div.className = `note-card ${n.note_type}`;
+                const title = n.title || 'Untitled';
+                let contentHtml = '';
+                if(n.note_type === 'text'){
+                    const txt = n.content || '';
+                    contentHtml = escapeHtml(txt.substring(0,100)) + (txt.length>100? '...' : '');
+                } else if(n.note_type === 'pdf'){
+                    const fp = n.file_path || '';
+                    const href = uploadBase.replace('__FNAME__', encodeURIComponent(fp));
+                    const display = escapeHtml(n.title || (fp ? fp.split('_').slice(-1)[0] : 'PDF'));
+                    contentHtml = `<a href="${href}" target="_blank" style="color:#ff4444;">📄 ${display}</a>`;
+                } else if(n.note_type === 'image'){
+                    const fp = n.file_path || '';
+                    const href = uploadBase.replace('__FNAME__', encodeURIComponent(fp));
+                    const display = escapeHtml(n.title || (fp ? fp.split('_').slice(-1)[0] : 'Image'));
+                    contentHtml = `<a href="${href}" target="_blank" style="color:#00ddff;">🖼️ ${display}</a>`;
+                } else if(n.note_type === 'file'){
+                    const fp = n.file_path || '';
+                    const href = uploadBase.replace('__FNAME__', encodeURIComponent(fp));
+                    const display = escapeHtml(n.title || (fp ? fp.split('_').slice(-1)[0] : 'File'));
+                    contentHtml = `<a href="${href}" target="_blank" style="color:#ffa500;">📎 ${display}</a>`;
+                } else if(n.note_type === 'link'){
+                    const lk = n.link_url || '';
+                    const display = escapeHtml(n.title || lk);
+                    contentHtml = `<a href="${lk}" target="_blank">🔗 ${display}</a>`;
+                }
+
+                div.innerHTML = `
+                    <div class="note-title">${escapeHtml(title)}</div>
+                    <div class="note-content">${contentHtml}</div>
+                `;
+                div.dataset.noteId = n.id;
+                container.appendChild(div);
+                
+                // Right-click context menu for delete
+                div.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if(confirm('Delete this note?')) deleteNote(n.id);
+                });
+            });
+        }
+
+        function escapeHtml(s){ return s.replace(/[&<"'>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"}[m])); }
+
+        // Text note
+        document.getElementById('add-text-btn').addEventListener('click', ()=>{
+            if(!selectedUnitId) {
+                alert('Please select a unit from the sidebar first');
+                return;
+            }
+            showModal('text-modal');
+        });
+
+        document.getElementById('save-text-btn').addEventListener('click', ()=>{
+            if(!selectedUnitId) {
+                alert('Unit selection lost. Please select a unit again.');
+                return;
+            }
+            const title = document.getElementById('text-title').value || 'Untitled';
+            const content = document.getElementById('text-content').value;
+            if(!content.trim()) return alert('Note cannot be empty');
+            fetch(`/add_text_note/${selectedUnitId}?subject_id=${subjectId}`, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:`note_title=${encodeURIComponent(title)}&note_text=${encodeURIComponent(content)}`
+            }).then(r=>r.json()).then(res=>{
+                if(res.status==='success'){
+                    closeModal('text-modal');
+                    loadNotes(selectedUnitId);
+                    document.getElementById('text-title').value = 'Untitled';
+                    document.getElementById('text-content').value = '';
+                } else {
+                    alert(res.message || 'Failed to save note');
+                }
+            }).catch(err=>alert('Error: '+err));
+        });
+
+        // File upload
+        document.getElementById('add-file-btn').addEventListener('click', ()=>{
+            if(!selectedUnitId) {
+                alert('Please select a unit from the sidebar first');
+                return;
+            }
+            document.getElementById('file-input').click();
+        });
+
+        document.getElementById('file-input').addEventListener('change', (e)=>{
+            if(!selectedUnitId) {
+                alert('Unit selection lost. Please select a unit again.');
+                return;
+            }
+            if(!e.target.files[0]) return;
+            const file = e.target.files[0];
+            const form = new FormData();
+            form.append('file', file);
+            const fileTitle = prompt('Enter a title for this file', file.name) || file.name;
+            form.append('title', fileTitle);
+            fetch(`/upload_note/${selectedUnitId}?subject_id=${subjectId}`, {method:'POST', body: form})
+            .then(r=>r.json()).then(res=>{
+                // clear file input so same file can be uploaded again if needed
+                e.target.value = '';
+                if(res.status==='success') loadNotes(selectedUnitId);
+                else alert(res.message || 'Upload failed');
+            }).catch(err=>{ e.target.value=''; alert('Error: '+err); });
+        });
+
+        // Link
+        document.getElementById('add-link-btn').addEventListener('click', ()=>{
+            if(!selectedUnitId) {
+                alert('Please select a unit from the sidebar first');
+                return;
+            }
+            showModal('link-modal');
+        });
+
+        document.getElementById('save-link-btn').addEventListener('click', ()=>{
+            if(!selectedUnitId) {
+                alert('Unit selection lost. Please select a unit again.');
+                return;
+            }
+            const url = document.getElementById('link-url').value;
+            if(!url.trim()) return alert('URL cannot be empty');
+            const linkTitle = document.getElementById('link-title').value || 'Untitled';
+            fetch(`/add_link/${selectedUnitId}?subject_id=${subjectId}`, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:`link_url=${encodeURIComponent(url)}&title=${encodeURIComponent(linkTitle)}`
+            }).then(r=>r.json()).then(res=>{
+                if(res.status==='success'){
+                    closeModal('link-modal');
+                    loadNotes(selectedUnitId);
+                    document.getElementById('link-url').value = '';
+                } else {
+                    alert(res.message || 'Failed to save link');
+                }
+            }).catch(err=>alert('Error: '+err));
+        });
+
+        // Delete note
+        function deleteNote(noteId){
+            if(!confirm('Delete this note?')) return;
+            fetch(`/delete_note/${noteId}`, {method:'POST'})
+            .then(r=>r.json()).then(res=>{
+                if(res.status==='success') loadNotes(selectedUnitId);
+            });
+        }
+
+        /* ---------------- Mobile sidebar toggle behavior ---------------- */
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
+        function openMobileSidebar(){
+            sidebar.classList.add('open');
+            sidebarBackdrop.classList.add('show');
+            // lock body scroll when menu open
+            document.body.style.overflow = 'hidden';
+        }
+        function closeMobileSidebar(){
+            sidebar.classList.remove('open');
+            sidebarBackdrop.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        mobileToggle.addEventListener('click', ()=>{
+            if(sidebar.classList.contains('open')) closeMobileSidebar();
+            else openMobileSidebar();
+        });
+
+        // If user taps a unit in mobile, auto-close sidebar to show notes
+        document.getElementById('unit-list').addEventListener('click', (e)=>{
+            const li = e.target.closest('li');
+            if(!li || !li.dataset.id) return;
+            // existing click handler will run due to setupUnitListeners
+            if(window.innerWidth <= 900) closeMobileSidebar();
+        });
+
+        // also close sidebar when window resizes back to desktop
+        window.addEventListener('resize', ()=>{
+            if(window.innerWidth > 900){
+                // ensure sidebar visible in desktop layout by removing transform (desktop styles expect it in-flow)
+                sidebar.classList.remove('open');
+                document.body.style.overflow = '';
+                sidebarBackdrop.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject[1] }} | NoteVault</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: #0b0b1e; color: #fff; display: flex; flex-direction: column; min-height: 100vh; }
+        .breadcrumb { background: #12121f; padding: 1rem 2rem; font-size: 0.9em; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .breadcrumb a { color: #6e7cff; text-decoration: none; cursor: pointer; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .content-wrapper { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 220px; background: #12121f; padding: 1.5rem 1rem; height: 100%; overflow-y: auto; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
+        .sidebar h3 { margin-bottom: 1rem; color: #6e7cff; font-size: 1.1em; }
+        .sidebar form { display: flex; flex-direction: column; margin-bottom: 1.5rem; }
+        .sidebar input { padding: 0.7rem; margin-bottom: 0.5rem; border: none; border-radius: 6px; background: #1b1b33; color: #fff; font-size: 0.9em; }
+        .sidebar input::placeholder { color: #888; }
+        .sidebar button { background: #6e7cff; border: none; color: #fff; padding: 0.7rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .sidebar button:hover { background: #5568dd; }
+        .sidebar ul { list-style: none; }
+        .sidebar li { padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 6px; background: #1b1b33; cursor: pointer; transition: 0.3s; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar li:hover { background: #2a2a44; }
+        .sidebar li.selected { background: #6e7cff; color: #fff; }
+        .unit-name { flex: 1; }
+        .unit-actions { display: flex; gap: 0.3rem; opacity: 0; }
+        .sidebar li:hover .unit-actions { opacity: 1; }
+        .unit-actions button { background: transparent; border: none; color: #fff; cursor: pointer; padding: 0.2rem 0.4rem; font-size: 0.9em; }
+        .main { flex: 1; padding: 1.5rem; overflow-y: auto; }
+        .main h2 { margin-bottom: 1.5rem; color: #6e7cff; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+        .btn { background: #6e7cff; border: none; color: #fff; padding: 0.7rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .btn:hover { background: #5568dd; }
+        .btn:disabled { background: #888; cursor: not-allowed; }
+        .notes-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+        .note-card { background: #1b1b33; padding: 1.3rem; border-radius: 8px; word-wrap: break-word; position: relative; transition: 0.3s; border-left: 4px solid #6e7cff; }
+        .note-card.file { border-left-color: #ffa500; }
+        .note-card.link { border-left-color: #00ff88; }
+        .note-card:hover { box-shadow: 0 8px 20px rgba(110, 124, 255, 0.3); transform: translateY(-3px); }
+        .note-title { font-weight: 600; font-size: 1.1em; margin-bottom: 0.7rem; color: #fff; }
+        .note-meta { font-size: 0.8em; opacity: 0.6; margin-bottom: 0.7rem; }
+        .note-content { font-size: 0.9em; opacity: 0.8; line-height: 1.4; margin-bottom: 1rem; }
+        .note-actions { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; }
+        .note-actions button { background: #2b2b44; border: none; color: #fff; padding: 0.4rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.85em; transition: 0.3s; }
+        .note-actions button:hover { background: #6e7cff; }
+        .empty-state { text-align: center; padding: 3rem; color: #888; }
+        .empty-state h3 { margin-bottom: 1rem; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        /* Context menu for units */
+        .context-menu { position: absolute; min-width: 140px; background: #0f1222; border: 1px solid rgba(255,255,255,0.04); color: #eaf0ff; border-radius: 8px; box-shadow: 0 8px 24px rgba(8,10,30,0.6); padding: 6px; display: none; z-index: 9999; }
+        .context-menu.visible { display: block; }
+        .context-menu button { display: block; width: 100%; text-align: left; background: transparent; border: none; color: inherit; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .context-menu button:hover { background: rgba(110,124,255,0.08); }
+        .modal-content { background: #12121f; padding: 2rem; border-radius: 10px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .modal-content h2 { margin-bottom: 1.5rem; color: #6e7cff; }
+        .modal-content label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.95em; }
+        .modal-content input, .modal-content textarea { width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: none; border-radius: 6px; background: #1b1b33; color: #fff; font-family: 'Poppins', sans-serif; }
+        .modal-content textarea { resize: vertical; min-height: 120px; }
+        .modal-content input::placeholder, .modal-content textarea::placeholder { color: #888; }
+        .modal-actions { display: flex; gap: 1rem; }
+        .modal-actions button { flex: 1; padding: 0.8rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .modal-actions .save { background: #6e7cff; color: #fff; }
+        .modal-actions .save:hover { background: #5568dd; }
+        .modal-actions .cancel { background: #2b2b44; color: #fff; }
+        .modal-actions .cancel:hover { background: #3a3a54; }
+        .success-msg { color: #00ff88; font-size: 0.9em; padding: 0.5rem; background: rgba(0, 255, 136, 0.1); border-radius: 4px; margin-bottom: 1rem; display: none; }
+        @media(max-width: 768px) {
+            .sidebar { width: 150px; padding: 1rem 0.7rem; }
+            .main { padding: 1rem; }
+            .notes-container { grid-template-columns: 1fr; }
+            .controls { gap: 0.5rem; }
+            .btn { padding: 0.6rem 1rem; }
+        }
+        @media(max-width: 600px) {
+            .content-wrapper { flex-direction: column; }
+            .sidebar { width: 100%; max-height: 200px; }
+            .main { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+    <a href="{{ url_for('dashboard') }}">📚 Dashboard</a> / <strong>{{ subject[1] }}</strong>
+</div>
+
+<!-- Content wrapper -->
+<div class="content-wrapper">
+
+    <!-- Sidebar: Units -->
+    <div class="sidebar">
+        <h3>📋 Units</h3>
+        <form id="add-unit-form">
+            <input type="text" id="new-unit-name" placeholder="Add new unit" required>
+            <button type="submit">+ Add Unit</button>
+        </form>
+        <ul id="unit-list">
+            {% for unit in units %}
+                <li data-id="{{ unit[0] }}">
+                    <span class="unit-name">{{ unit[1] }}</span>
+                    <div class="unit-actions">
+                        <button onclick="renameUnit('{{ unit[0] }}', event)">✏️</button>
+                        <button onclick="deleteUnit('{{ unit[0] }}', event)">🗑️</button>
+                    </div>
+                </li>
+            {% else %}
+                <li style="opacity: 0.5; font-style: italic; cursor: default;">No units yet</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Main: Notes area -->
+    <div class="main">
+        <h2 id="unit-title">Select a unit to view notes</h2>
+        
+        <div class="controls">
+            <button class="btn" id="add-text-btn" disabled>📝 Add Text Note</button>
+            <button class="btn" id="add-file-btn" disabled>📤 Upload File</button>
+            <button class="btn" id="add-link-btn" disabled>🔗 Add Link</button>
+        </div>
+
+        <div class="success-msg" id="success-msg"></div>
+        <div class="notes-container" id="notes-container">
+            <div class="empty-state">
+                <h3>📭 No notes yet</h3>
+                <p>Select a unit and add your first note!</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal: Add Text Note -->
+<div id="text-modal" class="modal">
+    <div class="modal-content">
+        <h2>📝 Add Text Note</h2>
+        <label>Title</label>
+        <input type="text" id="text-title" placeholder="Enter note title" value="Untitled">
+        <label>Content</label>
+        <textarea id="text-content" placeholder="Write your note here..."></textarea>
+        <div class="modal-actions">
+            <button class="save" id="save-text-btn">Save Note</button>
+            <button class="cancel" onclick="closeModal('text-modal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Link -->
+<div id="link-modal" class="modal">
+    <div class="modal-content">
+        <h2>🔗 Add Link</h2>
+        <label>Link Title</label>
+        <input type="text" id="link-title" placeholder="Enter link title" value="Untitled">
+        <label>URL</label>
+        <input type="url" id="link-url" placeholder="https://example.com">
+        <div class="modal-actions">
+            <button class="save" id="save-link-btn">Save Link</button>
+            <button class="cancel" onclick="closeModal('link-modal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="file-input" style="display: none;">
+
+<script>
+const subjectId = "{{ subject[0] }}";
+const uploadBase = "{{ url_for('uploaded_file', filename='__FNAME__') }}"; // replace __FNAME__ with encoded filename
+let selectedUnitId = null;
+
+// Modal helpers
+function showModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function showSuccess(msg) {
+    const el = document.getElementById('success-msg');
+    el.innerText = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 2000);
+}
+function escapeHtml(s) { 
+    return s.replace(/[&<"'>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"}[m])); 
+}
+
+// Unit selection
+document.querySelectorAll('#unit-list li[data-id]').forEach(li => {
+    li.addEventListener('click', (e) => {
+        if(e.target.tagName === 'BUTTON') return;
+        document.querySelectorAll('#unit-list li').forEach(l => l.classList.remove('selected'));
+        li.classList.add('selected');
+        selectedUnitId = li.dataset.id;
+        document.getElementById('unit-title').innerText = `📋 ${li.querySelector('.unit-name').innerText}`;
+        document.getElementById('add-text-btn').disabled = false;
+        document.getElementById('add-file-btn').disabled = false;
+        document.getElementById('add-link-btn').disabled = false;
+        loadNotes(selectedUnitId);
+    });
+});
+
+// Add unit
+document.getElementById('add-unit-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('new-unit-name').value.trim();
+    if(!name) return;
+    fetch(`/add_unit/${subjectId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `unit_name=${encodeURIComponent(name)}`
+    }).then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            const li = document.createElement('li');
+            li.dataset.id = res.unit_id;
+            li.innerHTML = `
+                <span class="unit-name">${res.unit_name}</span>
+                <div class="unit-actions">
+                    <button onclick="renameUnit(${res.unit_id}, event)">✏️</button>
+                    <button onclick="deleteUnit(${res.unit_id}, event)">🗑️</button>
+                </div>
+            `;
+            li.addEventListener('click', (e) => {
+                if(e.target.tagName === 'BUTTON') return;
+                document.querySelectorAll('#unit-list li').forEach(l => l.classList.remove('selected'));
+                li.classList.add('selected');
+                selectedUnitId = li.dataset.id;
+                document.getElementById('unit-title').innerText = `📋 ${res.unit_name}`;
+                loadNotes(selectedUnitId);
+            });
+            document.getElementById('unit-list').appendChild(li);
+            document.getElementById('new-unit-name').value = '';
+            showSuccess('Unit added!');
+        }
+    });
+});
+
+// Rename unit
+function renameUnit(unitId, e) {
+    e.stopPropagation();
+    const li = document.querySelector(`#unit-list li[data-id="${unitId}"]`);
+    const current = li.querySelector('.unit-name').innerText;
+    const newName = prompt('Enter new unit name:', current);
+    if(!newName) return;
+    fetch(`/rename_unit/${unitId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `new_name=${encodeURIComponent(newName)}`
+    }).then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            li.querySelector('.unit-name').innerText = newName;
+            if(selectedUnitId == unitId) {
+                document.getElementById('unit-title').innerText = `📋 ${newName}`;
+            }
+            showSuccess('Unit renamed!');
+        }
+    });
+}
+
+// Delete unit
+function deleteUnit(unitId, e) {
+    e.stopPropagation();
+    if(!confirm('Delete this unit and all its notes?')) return;
+    fetch(`/delete_unit/${unitId}`, { method: 'POST' })
+    .then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            document.querySelector(`#unit-list li[data-id="${unitId}"]`).remove();
+            if(selectedUnitId == unitId) {
+                selectedUnitId = null;
+                document.getElementById('unit-title').innerText = 'Select a unit to view notes';
+                document.getElementById('notes-container').innerHTML = '<div class="empty-state"><h3>📭 No notes yet</h3><p>Select a unit and add your first note!</p></div>';
+            }
+            showSuccess('Unit deleted!');
+        }
+    });
+}
+
+// Load notes
+function loadNotes(unitId) {
+    document.getElementById('notes-container').innerHTML = '<p style="text-align:center;opacity:0.6;">Loading...</p>';
+    fetch(`/get_notes/${unitId}`).then(r => r.json()).then(data => {
+        if(data.status === 'success') renderNotes(data.notes);
+        else document.getElementById('notes-container').innerHTML = '<p style="color:#ff6b6b;">Error loading notes</p>';
+    }).catch(err => {
+        console.error(err);
+        document.getElementById('notes-container').innerHTML = '<p style="color:#ff6b6b;">Error loading notes</p>';
+    });
+}
+
+// Unit context menu
+const unitMenu = document.createElement('div');
+unitMenu.id = 'unit-context-menu';
+unitMenu.className = 'context-menu';
+unitMenu.innerHTML = `<button id="ctx-rename-unit">Rename</button><button id="ctx-delete-unit">Delete</button>`;
+document.body.appendChild(unitMenu);
+let ctxUnitId = null;
+
+function showUnitMenu(x,y,id){
+    ctxUnitId = id;
+    unitMenu.style.left = x + 'px';
+    unitMenu.style.top = y + 'px';
+    unitMenu.classList.add('visible');
+}
+function hideUnitMenu(){ unitMenu.classList.remove('visible'); ctxUnitId = null; }
+
+document.querySelectorAll('#unit-list li').forEach(li=>{
+    li.addEventListener('contextmenu',(e)=>{
+        e.preventDefault(); e.stopPropagation();
+        const id = li.dataset.id;
+        showUnitMenu(e.pageX + 4, e.pageY + 4, id);
+    });
+});
+
+document.getElementById('ctx-rename-unit').addEventListener('click', ()=>{
+    if(!ctxUnitId) return hideUnitMenu();
+    renameUnit(ctxUnitId, { stopPropagation: ()=>{} });
+    hideUnitMenu();
+});
+document.getElementById('ctx-delete-unit').addEventListener('click', ()=>{
+    if(!ctxUnitId) return hideUnitMenu();
+    deleteUnit(ctxUnitId, { stopPropagation: ()=>{} });
+    hideUnitMenu();
+});
+document.addEventListener('click', ()=>{ if(unitMenu.classList.contains('visible')) hideUnitMenu(); });
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') hideUnitMenu(); });
+
+// Render notes
+function renderNotes(notes) {
+    const container = document.getElementById('notes-container');
+    container.innerHTML = '';
+    if(!notes || notes.length === 0) {
+        container.innerHTML = '<div class="empty-state"><h3>📭 No notes yet</h3><p>Add a text note, upload a file, or add a link!</p></div>';
+        return;
+    }
+    notes.forEach(n => {
+        const div = document.createElement('div');
+        div.className = `note-card ${n.note_type}`;
+        const title = n.title || 'Untitled';
+        let content = '';
+        if(n.note_type === 'text') {
+            const txt = n.content || '';
+            content = escapeHtml(txt.substring(0, 100)) + (txt.length > 100 ? '...' : '');
+        } else if(n.note_type === 'pdf') {
+            const fp = n.file_path || '';
+            const href = uploadBase.replace('__FNAME__', encodeURIComponent(fp));
+            const displayName = escapeHtml(n.title || (fp ? fp.split('_').slice(-1)[0] : 'PDF'));
+            content = `<a href="${href}" target="_blank" style="color:#ff4444;">📄 ${displayName}</a>`;
+        } else if(n.note_type === 'image') {
+            const fp = n.file_path || '';
+            const href = uploadBase.replace('__FNAME__', encodeURIComponent(fp));
+            const displayName = escapeHtml(n.title || (fp ? fp.split('_').slice(-1)[0] : 'Image'));
+            content = `<a href="${href}" target="_blank" style="color:#00ddff;">🖼️ ${displayName}</a>`;
+        } else if(n.note_type === 'file') {
+            const fp = n.file_path || '';
+            const href = uploadBase.replace('__FNAME__', encodeURIComponent(fp));
+            const displayName = escapeHtml(n.title || (fp ? fp.split('_').slice(-1)[0] : 'File'));
+            content = `<a href="${href}" target="_blank" style="color:#ffa500;">📎 ${displayName}</a>`;
+        } else if(n.note_type === 'link') {
+            const lk = n.link_url || '';
+            const displayName = escapeHtml(n.title || lk);
+            content = `<a href="${lk}" target="_blank" style="color:#00ff88;">🔗 ${displayName}</a>`;
+        }
+        div.innerHTML = `
+            <div class="note-title">${escapeHtml(title)}</div>
+            <div class="note-meta">${n.note_type.toUpperCase()}</div>
+            <div class="note-content">${content}</div>
+        `;
+        div.dataset.noteId = n.id;
+        container.appendChild(div);
+        
+        // Right-click context menu for delete
+        div.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if(confirm('Delete this note?')) deleteNote(n.id);
+        });
+    });
+}
+
+// Add text note
+document.getElementById('add-text-btn').addEventListener('click', () => {
+    if(!selectedUnitId) return alert('Select a unit first');
+    document.getElementById('text-title').value = 'Untitled';
+    document.getElementById('text-content').value = '';
+    showModal('text-modal');
+});
+
+document.getElementById('save-text-btn').addEventListener('click', () => {
+    const title = document.getElementById('text-title').value || 'Untitled';
+    const content = document.getElementById('text-content').value;
+    if(!content.trim()) return alert('Note cannot be empty');
+    fetch(`/add_text_note/${selectedUnitId}?subject_id=${subjectId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `note_title=${encodeURIComponent(title)}&note_text=${encodeURIComponent(content)}`
+    }).then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            closeModal('text-modal');
+            loadNotes(selectedUnitId);
+            showSuccess('Note saved!');
+        }
+    });
+});
+
+// Add file
+document.getElementById('add-file-btn').addEventListener('click', () => {
+    if(!selectedUnitId) return alert('Select a unit first');
+    document.getElementById('file-input').click();
+});
+
+document.getElementById('file-input').addEventListener('change', (e) => {
+    if(!e.target.files[0]) return;
+    const file = e.target.files[0];
+    const form = new FormData();
+    form.append('file', file);
+    // ask for an optional title for the file (defaults to original filename)
+    const fileTitle = prompt('Enter a title for this file', file.name) || file.name;
+    form.append('title', fileTitle);
+    fetch(`/upload_note/${selectedUnitId}?subject_id=${subjectId}`, {
+        method: 'POST',
+        body: form
+    }).then(r => r.json()).then(res => {
+        // clear file input so same file can be uploaded again if needed
+        e.target.value = '';
+        if(res.status === 'success') {
+            loadNotes(selectedUnitId);
+            showSuccess('File uploaded!');
+        } else alert(res.message || 'Upload failed');
+    }).catch(err=>{ e.target.value=''; alert('Upload error: '+err); });
+});
+
+// Add link
+document.getElementById('add-link-btn').addEventListener('click', () => {
+    if(!selectedUnitId) return alert('Select a unit first');
+    document.getElementById('link-title').value = 'Untitled';
+    document.getElementById('link-url').value = '';
+    showModal('link-modal');
+});
+
+document.getElementById('save-link-btn').addEventListener('click', () => {
+    const url = document.getElementById('link-url').value;
+    if(!url.trim()) return alert('URL cannot be empty');
+    const linkTitle = document.getElementById('link-title').value || 'Untitled';
+    fetch(`/add_link/${selectedUnitId}?subject_id=${subjectId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `link_url=${encodeURIComponent(url)}&title=${encodeURIComponent(linkTitle)}`
+    }).then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            closeModal('link-modal');
+            loadNotes(selectedUnitId);
+            showSuccess('Link added!');
+        }
+    });
+});
+
+// Delete note
+function deleteNote(noteId) {
+    if(!confirm('Delete this note?')) return;
+    fetch(`/delete_note/${noteId}`, { method: 'POST' })
+    .then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            loadNotes(selectedUnitId);
+            showSuccess('Note deleted!');
+        }
+    });
+}
+
+// Share note
+function shareNote(noteId) {
+    fetch(`/share_note/${noteId}`, { method: 'POST' })
+    .then(r => r.json()).then(res => {
+        if(res.status === 'success') {
+            const shareUrl = res.share_url;
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.8); display: flex; align-items: center; 
+                justify-content: center; z-index: 9999;
+            `;
+            modal.innerHTML = `
+                <div style="background: #12121f; padding: 2rem; border-radius: 10px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+                    <h2 style="color: #6e7cff; margin-bottom: 1.5rem;">🔗 Share Note</h2>
+                    <p style="color: #aaa; margin-bottom: 1rem;">Share this link with others. Recipients will have read-only access.</p>
+                    <div style="background: #1b1b33; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <input type="text" id="share-url-input" value="${shareUrl}" readonly style="background: transparent; border: none; color: #6e7cff; width: 100%; font-size: 0.9em; cursor: text;">
+                        <button onclick="copyToClipboard('${shareUrl}')" style="background: #6e7cff; border: none; color: #fff; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; white-space: nowrap;">📋 Copy</button>
+                    </div>
+                    <button onclick="this.closest('div').closest('div').remove();" style="width: 100%; background: #2b2b44; border: none; color: #fff; padding: 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Close</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if(e.target === modal) modal.remove();
+            });
+        } else {
+            alert(res.message || 'Failed to share note');
+        }
+    });
+}
+
+// Copy to clipboard
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showSuccess('Share link copied!');
+    }).catch(() => {
+        alert('Failed to copy link');
+    });
+}
+
+// Auto-select first unit on load
+window.addEventListener('DOMContentLoaded', () => {
+    const first = document.querySelector('#unit-list li[data-id]');
+    if(first) first.click();
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | NoteVault</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body { font-family: 'Poppins', sans-serif; margin: 0; background: linear-gradient(180deg,#07071a 0%, #0b0b1e 60%); color: #eef1ff; min-height: 100vh; }
+        .header { background: rgba(18,18,31,0.7); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(6px); }
+        .header h1 { margin: 0; color: #e6e9ff; font-weight: 600; letter-spacing: 0.4px; }
+        .user-info { display: flex; align-items: center; gap: 1rem; font-size: 0.95rem; }
+        .logout-btn { background: linear-gradient(90deg,#ff7b7b,#ff6b6b); border: none; color: #fff; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.35); }
+        .logout-btn:hover { filter: brightness(1.05); }
+        .container { max-width: 1200px; margin: 2.25rem auto; padding: 0 1rem; }
+        .quote { background: rgba(27,27,51,0.6); padding: 1.25rem; border-radius: 10px; margin-bottom: 1.75rem; font-style: italic; color: #cdd8ff; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+        .add-subject { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: center; }
+        .add-subject input { flex: 1; min-width: 200px; padding: 0.8rem; border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; background: rgba(27,27,51,0.45); color: #eef1ff; outline: none; transition: box-shadow 0.15s; }
+        .add-subject input:focus { box-shadow: 0 6px 18px rgba(110,124,255,0.06); }
+        .add-subject button { padding: 0.7rem 1.25rem; background: linear-gradient(90deg,#6e7cff,#5568dd); border: none; color: #fff; border-radius: 8px; cursor: pointer; font-weight: 700; letter-spacing: 0.3px; }
+        .add-subject button:hover { transform: translateY(-1px); }
+        .subjects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
+        .subject-card { background: linear-gradient(180deg, rgba(27,27,51,0.45), rgba(18,18,31,0.45)); padding: 1.25rem; border-radius: 12px; cursor: pointer; transition: transform .22s ease, box-shadow .22s ease; display: flex; flex-direction: column; min-height: 120px; }
+        .subject-card:hover { transform: translateY(-6px); box-shadow: 0 14px 34px rgba(30,35,90,0.25); }
+        .subject-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; color: #f7f9ff; }
+        .subject-meta { font-size: 0.9rem; color: rgba(230,234,255,0.78); opacity: 0.9; margin-bottom: 0.5rem; }
+        .subject-actions { display: flex; gap: 0.5rem; margin-top: auto; justify-content: flex-end; }
+        .subject-actions button { background: transparent; border: 1px solid rgba(255,255,255,0.06); color: #e9edff; padding: 0.35rem 0.7rem; border-radius: 8px; cursor: pointer; font-size: 0.9em; transition: background .15s, border-color .15s; }
+        .subject-actions button:hover { background: rgba(110,124,255,0.12); border-color: rgba(110,124,255,0.28); }
+        .empty { text-align: center; color: #b7bfd6; padding: 2rem; }
+        /* Context menu */
+        .context-menu { position: absolute; min-width: 140px; background: #0f1222; border: 1px solid rgba(255,255,255,0.04); color: #eaf0ff; border-radius: 8px; box-shadow: 0 8px 24px rgba(8,10,30,0.6); padding: 6px; display: none; z-index: 9999; }
+        .context-menu.visible { display: block; }
+        .context-menu button { display: block; width: 100%; text-align: left; background: transparent; border: none; color: inherit; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .context-menu button:hover { background: rgba(110,124,255,0.08); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 Dashboard</h1>
+        <div class="user-info">
+            <span>Welcome, <strong>{{ username }}</strong>!</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <!-- Context menu for subject cards -->
+    <div id="subject-context-menu" class="context-menu" role="menu">
+        <button id="ctx-rename-subject">Rename</button>
+        <button id="ctx-delete-subject">Delete</button>
+    </div>
+
+    <div class="container">
+        {% if quote %}
+            <div class="quote">✨ {{ quote }}</div>
+        {% endif %}
+
+        <div class="add-subject">
+            <form id="add-subject-form" style="display: flex; gap: 1rem; flex: 1;">
+                <input type="text" id="subject-name" placeholder="Enter subject name" required>
+                <button type="submit">+ Add Subject</button>
+            </form>
+        </div>
+
+        <div class="subjects-grid" id="subjects-container">
+            {% if subjects %}
+                {% for subject in subjects %}
+                    <div class="subject-card" data-subject-id="{{ subject[0] }}">
+                        <div class="subject-title">{{ subject[1] }}</div>
+                        <div class="subject-meta" style="font-size: 0.9em; opacity: 0.7; margin-top: 1rem;">Click to view units →</div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty" style="grid-column: 1/-1;">No subjects yet. Create one to get started!</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Add subject (AJAX)
+        document.getElementById('add-subject-form').addEventListener('submit', (e)=>{
+            e.preventDefault();
+            const name = document.getElementById('subject-name').value.trim();
+            if(!name) return;
+            fetch('{{ url_for("dashboard") }}', {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:`new_subject=${encodeURIComponent(name)}`
+            }).then(()=>{
+                location.reload();
+            });
+        });
+
+        // Click subject to view units
+        document.querySelectorAll('.subject-card').forEach(card=>{
+            card.addEventListener('click', (e)=>{
+                if(e.target.tagName==='BUTTON') return;
+                const subjectId = card.dataset.subjectId;
+                window.location.href = `/subject/${subjectId}`;
+            });
+        });
+
+        function renameSubject(subjectId, e){
+            e.stopPropagation();
+            const newName = prompt('Enter new subject name:');
+            if(!newName) return;
+            fetch(`/rename_subject/${subjectId}`, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:`new_name=${encodeURIComponent(newName)}`
+            }).then(r=>r.json()).then(res=>{
+                if(res.status==='success') location.reload();
+                else alert('Failed to rename');
+            });
+        }
+
+        function deleteSubject(subjectId, e){
+            e.stopPropagation();
+            if(!confirm('Delete this subject and all its units/notes?')) return;
+            fetch(`/delete_subject/${subjectId}`, {method:'POST'})
+            .then(r=>r.json()).then(res=>{
+                if(res.status==='success') location.reload();
+                else alert('Failed to delete');
+            });
+        }
+
+        // Context menu behaviour for subject cards
+        const subjectMenu = document.getElementById('subject-context-menu');
+        let contextSubjectId = null;
+
+        function showSubjectMenu(x, y, id){
+            contextSubjectId = id;
+            subjectMenu.style.left = x + 'px';
+            subjectMenu.style.top = y + 'px';
+            subjectMenu.classList.add('visible');
+        }
+        function hideSubjectMenu(){
+            subjectMenu.classList.remove('visible');
+            contextSubjectId = null;
+        }
+
+        document.querySelectorAll('.subject-card').forEach(card=>{
+            card.addEventListener('contextmenu', (e)=>{
+                e.preventDefault();
+                e.stopPropagation();
+                const sid = card.dataset.subjectId;
+                showSubjectMenu(e.pageX + 4, e.pageY + 4, sid);
+            });
+        });
+
+        // Menu actions
+        document.getElementById('ctx-rename-subject').addEventListener('click', ()=>{
+            if(!contextSubjectId) return hideSubjectMenu();
+            // call existing function; pass a dummy event object
+            renameSubject(contextSubjectId, { stopPropagation: ()=>{} });
+            hideSubjectMenu();
+        });
+        document.getElementById('ctx-delete-subject').addEventListener('click', ()=>{
+            if(!contextSubjectId) return hideSubjectMenu();
+            deleteSubject(contextSubjectId, { stopPropagation: ()=>{} });
+            hideSubjectMenu();
+        });
+
+        // Hide menu on click elsewhere or Escape
+        document.addEventListener('click', (e)=>{ if(subjectMenu.classList.contains('visible')) hideSubjectMenu(); });
+        document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideSubjectMenu(); });
+    </script>
+</body>
+</html>

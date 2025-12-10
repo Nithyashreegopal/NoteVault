@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ subject[1] if subject else 'NoteVault' }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #0b0b25, #1a1a40);
+    color: white;
+    display: flex;
+    height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    overflow-y: auto;
+    transition: all 0.3s ease-in-out;
+}
+.sidebar:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+.sidebar h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-weight: 600;
+    color: #ffcb6b;
+}
+.unit {
+    background: rgba(255,255,255,0.1);
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    transition: 0.3s;
+}
+.unit:hover {
+    background: #ffcb6b;
+    color: #1a1a40;
+}
+
+/* Buttons */
+button {
+    background: #ffcb6b;
+    border: none;
+    color: #1a1a40;
+    padding: 8px 14px;
+    margin-top: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+    font-weight: 600;
+}
+button:hover {
+    background: #ffd77f;
+}
+
+/* Main */
+.main {
+    flex: 1;
+    padding: 40px;
+    overflow-y: auto;
+    animation: fadeIn 0.8s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>{{ subject[1] if subject else 'Subject' }}</h2>
+    {% for unit in units %}
+    <div class="unit" onclick="window.location.href='/view_unit/{{ unit[0] }}'">
+        <span>{{ unit[2] }}</span>
+        <div style="display: flex; gap: 6px;">
+            <button onclick="renameUnit(event, '{{ unit[0] }}', '{{ unit[2] }}')">✏️</button>
+            <form method="POST" action="/delete_unit/{{ unit[0] }}/{{ subject[0] }}" style="display:inline;">
+                <button type="submit">🗑️</button>
+            </form>
+            <button onclick="shareUnit(event, '{{ unit[0] }}', '{{ unit[2] }}')" style="background:#00aa66;color:#fff;font-weight:600;">🔗 Share</button>
+        </div>
+    </div>
+    {% endfor %}
+
+    <form method="POST" action="/add_unit">
+        <input type="hidden" name="subject_id" value="{{ subject[0] }}">
+        <input type="text" name="unit_name" placeholder="New unit name" required style="width:100%; padding:8px; border-radius:8px; margin-top:10px;">
+        <button type="submit">+ Add Unit</button>
+    </form>
+</div>
+
+<div class="main">
+    <h1>Welcome to {{ subject[1] }} 📚</h1>
+    <p>Select a unit from the sidebar to view its notes.</p>
+</div>
+
+<script>
+function renameUnit(event, id, oldName) {
+    event.stopPropagation();
+    const newName = prompt("Rename unit:", oldName);
+    if (!newName) return;
+
+    fetch('/rename_unit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `unit_id=${id}&new_name=${encodeURIComponent(newName)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) location.reload();
+    });
+}
+
+function shareUnit(event, unitId, unitName) {
+    event.stopPropagation();
+    fetch(`/share_unit/${unitId}`, {method:'POST'})
+    .then(r=>r.json()).then(res=>{
+        if(res.status==='success'){
+            const shareUrl = res.share_url;
+            const modal = document.createElement('div');
+            modal.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;`;
+            modal.innerHTML = `
+                <div style=\"background:#12121f;padding:2rem;border-radius:10px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+                    <h2 style=\"color:#00aa66;margin-bottom:1.5rem;\">🔗 Share Unit: ${unitName}</h2>
+                    <p style=\"color:#aaa;margin-bottom:1rem;\">Share this link with others. Recipients will have read-only access to all notes in this unit.</p>
+                    <div style=\"background:#1b1b33;padding:1rem;border-radius:6px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;\">
+                        <input type=\"text\" value=\"${shareUrl}\" readonly style=\"background:transparent;border:none;color:#00aa66;width:100%;font-size:0.9em;cursor:text;\">
+                        <button onclick=\"copyToClipboard('${shareUrl}')\" style=\"background:#00aa66;border:none;color:#fff;padding:0.5rem 1rem;border-radius:4px;cursor:pointer;margin-left:0.5rem;white-space:nowrap;\">📋 Copy</button>
+                    </div>
+                    <button onclick=\"this.closest('div').closest('div').remove();\" style=\"width:100%;background:#2b2b44;border:none;color:#fff;padding:0.8rem;border-radius:6px;cursor:pointer;font-weight:600;\">Close</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.remove(); });
+        } else alert(res.message || 'Failed to share unit');
+    });
+}
+function copyToClipboard(text){
+    navigator.clipboard.writeText(text).then(()=>{
+        alert('Share link copied to clipboard!');
+    }).catch(()=>{ alert('Failed to copy link'); });
+}
+</script>
+
+</body>
+</html>
